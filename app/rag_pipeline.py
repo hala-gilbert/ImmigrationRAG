@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textwrap import dedent
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 import ollama
 
@@ -25,7 +25,12 @@ def _corpus_to_params(corpus: str | None) -> Tuple[str | None, str]:
     return None, "immigration_rag"
 
 
-def build_index(corpus: str | None = None, *, rebuild: bool = False) -> int:
+def build_index(
+    corpus: str | None = None,
+    *,
+    rebuild: bool = False,
+    progress_cb: Callable[[str, int, int], None] | None = None,
+) -> int:
     """Load documents for the chosen corpus and index into Chroma.
 
     - rebuild=False (default): incremental indexing, skips chunks already present.
@@ -34,17 +39,23 @@ def build_index(corpus: str | None = None, *, rebuild: bool = False) -> int:
     subdirectory, collection_name = _corpus_to_params(corpus)
     if rebuild:
         delete_collection(collection_name)
-    chunks = load_and_chunk_documents(subdirectory=subdirectory)
-    return index_document_chunks(chunks, collection_name=collection_name, skip_existing=not rebuild)
+    chunks = load_and_chunk_documents(subdirectory=subdirectory, progress_cb=progress_cb)
+    return index_document_chunks(
+        chunks,
+        collection_name=collection_name,
+        skip_existing=not rebuild,
+        progress_cb=progress_cb,
+    )
 
 
 def build_context_from_chunks(chunks: List[DocumentChunk]) -> str:
     parts: List[str] = []
     for chunk in chunks:
-        score_str = f"{chunk.score:.3f}" if chunk.score is not None else "n/a"
+        relevance_str = f"{chunk.score:.3f}" if chunk.score is not None else "n/a"
+        distance_str = f"{chunk.distance:.4f}" if getattr(chunk, "distance", None) is not None else "n/a"
         parts.append(
             f"Source: {chunk.source}\n"
-            f"Relevance score: {score_str}\n"
+            f"Relevance: {relevance_str} | Distance: {distance_str}\n"
             f"Excerpt:\n{chunk.text}\n"
             "-------------------------"
         )

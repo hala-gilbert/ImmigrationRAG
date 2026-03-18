@@ -38,6 +38,12 @@ TOP_K=5
 
 Run ```ollama serve``` to start up a local ollama server (make sure ollama is locally installed first)
 
+make sure llama3.1 and nomic-embed-text is downloaded. if not run:
+```bash
+ollama pull llama3.1
+ollama pull nomic-embed-text
+```
+
 Then run:
 ```bash
 streamlit run streamlit_app.py
@@ -55,3 +61,7 @@ Then open the URL shown in the terminal (usually `http://localhost:8501`).
 
 After loading in the data make sure to build/rebuild index before asking legal questions.
 
+### RAG notes
+- Uses Cosine similarity
+- **distance** from each grabbed node is displayed. Ranges 0 - 1, 0 being closest to prompt, 1 being furtherst from the prompt.
+-  **relevance** of each node grabbed is also displayed. Ranges 0 - 1, 0 meaning no relevance, 1 being identitcal.

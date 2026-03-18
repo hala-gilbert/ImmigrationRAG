@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import Callable, List, Sequence
 
 import chromadb
 from chromadb.config import Settings
@@ -36,6 +36,7 @@ def get_or_create_collection(collection_name: str = "immigration_rag"):
     client = get_chroma_client()
     return client.get_or_create_collection(
         name=collection_name,
+        metadata={"hnsw:space": config.chroma_space},
         embedding_function=OllamaEmbeddingFunction(),
     )
 
@@ -59,6 +60,7 @@ def index_document_chunks(
     collection_name: str = "immigration_rag",
     batch_size: int = 1000,
     skip_existing: bool = True,
+    progress_cb: Callable[[str, int, int], None] | None = None,
 ) -> int:
     """Index document chunks into Chroma and return the number indexed."""
     if not chunks:
@@ -72,12 +74,18 @@ def index_document_chunks(
 
     # Chroma enforces a maximum batch size internally; keep our batches small and safe.
     total = 0
-    for id_batch, text_batch, meta_batch in zip(
+    total_batches = (len(ids) + batch_size - 1) // batch_size
+    for batch_idx, (id_batch, text_batch, meta_batch) in enumerate(
+        zip(
         _batched(ids, batch_size),
         _batched(texts, batch_size),
         _batched(metadatas, batch_size),
         strict=False,
+        ),
+        start=1,
     ):
+        if progress_cb:
+            progress_cb("indexing_batches", batch_idx, total_batches)
         id_batch_list = list(id_batch)
         text_batch_list = list(text_batch)
         meta_batch_list = list(meta_batch)
@@ -112,10 +120,11 @@ def query_similar_chunks(
     k = top_k or config.top_k
     collection = get_or_create_collection(collection_name)
 
+    # NOTE: `ids` are always returned; Chroma does not allow `ids` in `include`.
     results = collection.query(
         query_texts=[query],
         n_results=k,
-        include=["documents", "metadatas", "ids", "distances"],
+        include=["documents", "metadatas", "distances"],
     )
 
     documents = results.get("documents", [[]])[0]
@@ -125,22 +134,24 @@ def query_similar_chunks(
 
     chunks: List[DocumentChunk] = []
     for doc_id, text, meta, dist in zip(ids, documents, metadatas, distances, strict=False):
-        # Chroma returns a distance (smaller is better). Convert to a
-        # similarity-style score between 0 and 1 where possible.
-        score: float | None
         try:
-            score = max(0.0, min(1.0, 1.0 - float(dist)))
+            # With CHROMA_SPACE=cosine, Chroma returns cosine distance:
+            # 0 = identical, 1 = orthogonal, 2 = opposite direction.
+            distance = float(dist)
+            relevance = max(0.0, min(1.0, 1.0 - (distance / 2.0)))
         except Exception:  # noqa: BLE001
-            score = None
+            distance = None
+            relevance = None
 
         chunks.append(
             DocumentChunk(
                 id=doc_id,
                 text=text,
                 source=meta.get("source", "unknown"),
-                score=score,
+                score=relevance,  # similarity-style (higher = better)
+                distance=distance,  # raw cosine distance returned by Chroma
             )
         )
 
-    return chunks
+    return chunks[:k]
 
