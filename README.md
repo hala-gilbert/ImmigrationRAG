@@ -29,10 +29,16 @@ OLLAMA_LLM_MODEL=llama3.1
 OLLAMA_EMBED_MODEL=nomic-embed-text
 DATA_DIR=data/immigration
 VECTOR_DB_DIR=.chroma
+CHUNK_SIZE=2500
+CHUNK_OVERLAP=100
+TOP_K=5
 ```
 
-## Running the app
+## Running and using the app
 
+Run ```ollama serve``` to start up a local ollama server (make sure ollama is locally installed first)
+
+Then run:
 ```bash
 streamlit run streamlit_app.py
 ```
@@ -47,5 +53,5 @@ Then open the URL shown in the terminal (usually `http://localhost:8501`).
 - `app/vector_store.py` – Build and query the Chroma vector store using Ollama embeddings
 - `app/rag_pipeline.py` – High-level RAG pipeline (retrieve + generate via Ollama)
 
-Place your immigration law documents in `data/immigration/` (to be created), then use the UI to build the index and start asking questions.
+After loading in the data make sure to build/rebuild index before asking legal questions.
 

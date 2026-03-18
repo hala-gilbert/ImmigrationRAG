@@ -19,8 +19,9 @@ class AppConfig(BaseModel):
         default_factory=lambda: os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
     )
 
-    chunk_size: int = Field(default_factory=lambda: int(os.getenv("CHUNK_SIZE", "800")))
-    chunk_overlap: int = Field(default_factory=lambda: int(os.getenv("CHUNK_OVERLAP", "200")))
+    # Larger defaults reduce chunk count significantly (faster indexing).
+    chunk_size: int = Field(default_factory=lambda: int(os.getenv("CHUNK_SIZE", "2500")))
+    chunk_overlap: int = Field(default_factory=lambda: int(os.getenv("CHUNK_OVERLAP", "100")))
     top_k: int = Field(default_factory=lambda: int(os.getenv("TOP_K", "5")))
 
     @property

@@ -4,3 +4,6 @@ __pycache__/
 .env
 .chroma/
 .DS_Store
+
+data/immigration/visas/cases_bia_ag_raw/
+data/immigration/visas/cases_bia_ag/

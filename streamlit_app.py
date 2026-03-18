@@ -51,10 +51,18 @@ def main() -> None:
         st.text_input("Embedding model", value=config.ollama_embed_model, disabled=True)
         st.markdown("---")
 
-        if st.button("Build / Rebuild Index", type="primary"):
-            with st.spinner("Indexing documents..."):
-                count = build_index(selected_corpus)
-            st.success(f"Indexed {count} chunks from documents for corpus: {corpus_label}.")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("Update index (skip existing)", type="primary"):
+                with st.spinner("Indexing new documents/chunks..."):
+                    count = build_index(selected_corpus, rebuild=False)
+                st.success(f"Indexed {count} NEW chunks for corpus: {corpus_label}.")
+
+        with col_b:
+            if st.button("Force rebuild (re-embed all)", type="secondary"):
+                with st.spinner("Deleting collection and rebuilding from scratch..."):
+                    count = build_index(selected_corpus, rebuild=True)
+                st.success(f"Rebuilt index with {count} chunks for corpus: {corpus_label}.")
 
         st.markdown("---")
         st.caption(
@@ -82,9 +90,11 @@ def main() -> None:
         st.markdown("### Answer")
         st.write(answer_text)
 
-        with st.expander("Show retrieved context"):
-            for chunk in retrieved_chunks:
-                st.markdown(f"**Source:** `{chunk.source}`")
+        with st.expander("Show retrieved context (top 3 by relevance)"):
+            top_chunks = retrieved_chunks[:3]
+            for idx, chunk in enumerate(top_chunks, start=1):
+                score_display = f"{chunk.score:.3f}" if getattr(chunk, "score", None) is not None else "n/a"
+                st.markdown(f"**Node {idx}**  |  **Source:** `{chunk.source}`  |  **Relevance:** {score_display}")
                 st.code(chunk.text)
                 st.markdown("---")
 

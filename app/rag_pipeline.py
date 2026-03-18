@@ -7,7 +7,7 @@ import ollama
 
 from .config import config
 from .data_loader import DocumentChunk, load_and_chunk_documents
-from .vector_store import index_document_chunks, query_similar_chunks
+from .vector_store import delete_collection, index_document_chunks, query_similar_chunks
 
 
 def _corpus_to_params(corpus: str | None) -> Tuple[str | None, str]:
@@ -25,18 +25,26 @@ def _corpus_to_params(corpus: str | None) -> Tuple[str | None, str]:
     return None, "immigration_rag"
 
 
-def build_index(corpus: str | None = None) -> int:
-    """Load documents for the chosen corpus, chunk them, and index into Chroma."""
+def build_index(corpus: str | None = None, *, rebuild: bool = False) -> int:
+    """Load documents for the chosen corpus and index into Chroma.
+
+    - rebuild=False (default): incremental indexing, skips chunks already present.
+    - rebuild=True: delete the collection and re-embed everything.
+    """
     subdirectory, collection_name = _corpus_to_params(corpus)
+    if rebuild:
+        delete_collection(collection_name)
     chunks = load_and_chunk_documents(subdirectory=subdirectory)
-    return index_document_chunks(chunks, collection_name=collection_name)
+    return index_document_chunks(chunks, collection_name=collection_name, skip_existing=not rebuild)
 
 
 def build_context_from_chunks(chunks: List[DocumentChunk]) -> str:
     parts: List[str] = []
     for chunk in chunks:
+        score_str = f"{chunk.score:.3f}" if chunk.score is not None else "n/a"
         parts.append(
             f"Source: {chunk.source}\n"
+            f"Relevance score: {score_str}\n"
             f"Excerpt:\n{chunk.text}\n"
             "-------------------------"
         )
