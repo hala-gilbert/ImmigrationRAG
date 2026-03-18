@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import Callable, List, Sequence
 
 import chromadb
 from chromadb.config import Settings
@@ -33,22 +33,12 @@ def get_chroma_client() -> chromadb.ClientAPI:
 
 
 def get_or_create_collection(collection_name: str = "immigration_rag"):
-    """
-    Return a Chroma collection. 
-    If it exists, fetch it. 
-    If it does not exist, create it with the default L2 metric.
-    """
     client = get_chroma_client()
-    
-    existing_collections = [c.name for c in client.list_collections()]
-    
-    if collection_name in existing_collections:
-        return client.get_collection(name=collection_name)
-    else:
-        return client.create_collection(
-            name=collection_name,
-            embedding_function=OllamaEmbeddingFunction(),
-        )
+    return client.get_or_create_collection(
+        name=collection_name,
+        metadata={"hnsw:space": config.chroma_space},
+        embedding_function=OllamaEmbeddingFunction(),
+    )
 
 def delete_collection(collection_name: str = "immigration_rag") -> None:
     """Delete a collection from the persistent Chroma DB (destructive)."""
@@ -70,6 +60,7 @@ def index_document_chunks(
     collection_name: str = "immigration_rag",
     batch_size: int = 1000,
     skip_existing: bool = True,
+    progress_cb: Callable[[str, int, int], None] | None = None,
 ) -> int:
     """Index document chunks into Chroma and return the number indexed."""
     if not chunks:
@@ -83,12 +74,18 @@ def index_document_chunks(
 
     # Chroma enforces a maximum batch size internally; keep our batches small and safe.
     total = 0
-    for id_batch, text_batch, meta_batch in zip(
+    total_batches = (len(ids) + batch_size - 1) // batch_size
+    for batch_idx, (id_batch, text_batch, meta_batch) in enumerate(
+        zip(
         _batched(ids, batch_size),
         _batched(texts, batch_size),
         _batched(metadatas, batch_size),
         strict=False,
+        ),
+        start=1,
     ):
+        if progress_cb:
+            progress_cb("indexing_batches", batch_idx, total_batches)
         id_batch_list = list(id_batch)
         text_batch_list = list(text_batch)
         meta_batch_list = list(meta_batch)
@@ -123,6 +120,7 @@ def query_similar_chunks(
     k = top_k or config.top_k
     collection = get_or_create_collection(collection_name)
 
+    # NOTE: `ids` are always returned; Chroma does not allow `ids` in `include`.
     results = collection.query(
         query_texts=[query],
         n_results=k,
@@ -137,10 +135,11 @@ def query_similar_chunks(
     chunks: List[DocumentChunk] = []
     for doc_id, text, meta, dist in zip(ids, documents, metadatas, distances, strict=False):
         try:
+            # With CHROMA_SPACE=cosine, Chroma returns cosine distance:
+            # 0 = identical, 1 = orthogonal, 2 = opposite direction.
             distance = float(dist)
-            # convert L2 distance to a 0→1 "similarity-like" relevance
-            relevance = 1 / (1 + distance)  # smaller L2 → higher relevance
-        except Exception:
+            relevance = max(0.0, min(1.0, 1.0 - (distance / 2.0)))
+        except Exception:  # noqa: BLE001
             distance = None
             relevance = None
 
@@ -149,10 +148,10 @@ def query_similar_chunks(
                 id=doc_id,
                 text=text,
                 source=meta.get("source", "unknown"),
-                score=relevance,     # similarity-style (higher = better)
-                distance=distance,   # raw distance (lower = better)
+                score=relevance,  # similarity-style (higher = better)
+                distance=distance,  # raw cosine distance returned by Chroma
             )
         )
 
-    return chunks[:top_k]
+    return chunks[:k]
 

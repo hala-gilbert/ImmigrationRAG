@@ -23,6 +23,7 @@ class AppConfig(BaseModel):
     chunk_size: int = Field(default_factory=lambda: int(os.getenv("CHUNK_SIZE", "2500")))
     chunk_overlap: int = Field(default_factory=lambda: int(os.getenv("CHUNK_OVERLAP", "100")))
     top_k: int = Field(default_factory=lambda: int(os.getenv("TOP_K", "5")))
+    chroma_space: str = Field(default_factory=lambda: os.getenv("CHROMA_SPACE", "cosine"))
 
     @property
     def resolved_data_dir(self) -> Path:

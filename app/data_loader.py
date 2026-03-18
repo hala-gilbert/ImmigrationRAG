@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import Callable, Iterable, List
 
 from rich.console import Console
 
@@ -53,7 +53,10 @@ def _simple_chunk_text(text: str, chunk_size: int, chunk_overlap: int) -> List[s
     return chunks
 
 
-def load_and_chunk_documents(subdirectory: str | None = None) -> List[DocumentChunk]:
+def load_and_chunk_documents(
+    subdirectory: str | None = None,
+    progress_cb: Callable[[str, int, int], None] | None = None,
+) -> List[DocumentChunk]:
     """Load immigration documents and return a list of chunks.
 
     If subdirectory is provided, documents are loaded from
@@ -68,7 +71,12 @@ def load_and_chunk_documents(subdirectory: str | None = None) -> List[DocumentCh
 
     console.print(f"[bold]Loading documents from[/bold] {data_dir}")
 
-    for file_path in iter_text_files(data_dir):
+    files = list(iter_text_files(data_dir))
+    total_files = len(files)
+
+    for i, file_path in enumerate(files, start=1):
+        if progress_cb:
+            progress_cb("chunking_files", i, total_files)
         try:
             text = file_path.read_text(encoding="utf-8", errors="ignore")
         except Exception as exc:  # noqa: BLE001

@@ -20,7 +20,7 @@ def main() -> None:
         layout="wide",
     )
 
-    st.title("Immigration RAG (Local Ollama)")
+    st.title("Immigration Legal RAG (Local Ollama)")
     st.write(
         "Ask questions about U.S. immigration law using a local Retrieval-Augmented Generation setup.\n"
         "Make sure Ollama is running and your immigration documents are placed in "
@@ -54,23 +54,48 @@ def main() -> None:
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("Update index (skip existing)", type="primary"):
+                progress = st.progress(0, text="Starting…")
+
+                def _cb(phase: str, cur: int, total: int) -> None:
+                    if total <= 0:
+                        return
+                    pct = max(0.0, min(1.0, cur / total))
+                    label = "Working…"
+                    if phase == "chunking_files":
+                        label = f"Chunking files: {cur}/{total}"
+                    elif phase == "indexing_batches":
+                        label = f"Indexing batches: {cur}/{total}"
+                    progress.progress(pct, text=label)
+
                 with st.spinner("Indexing new documents/chunks..."):
-                    count = build_index(selected_corpus, rebuild=False)
+                    count = build_index(selected_corpus, rebuild=False, progress_cb=_cb)
                 st.success(f"Indexed {count} NEW chunks for corpus: {corpus_label}.")
 
         with col_b:
             if st.button("Force rebuild (re-embed all)", type="secondary"):
+                progress = st.progress(0, text="Starting…")
+
+                def _cb(phase: str, cur: int, total: int) -> None:
+                    if total <= 0:
+                        return
+                    pct = max(0.0, min(1.0, cur / total))
+                    label = "Working…"
+                    if phase == "chunking_files":
+                        label = f"Chunking files: {cur}/{total}"
+                    elif phase == "indexing_batches":
+                        label = f"Indexing batches: {cur}/{total}"
+                    progress.progress(pct, text=label)
+
                 with st.spinner("Deleting collection and rebuilding from scratch..."):
-                    count = build_index(selected_corpus, rebuild=True)
+                    count = build_index(selected_corpus, rebuild=True, progress_cb=_cb)
                 st.success(f"Rebuilt index with {count} chunks for corpus: {corpus_label}.")
 
         st.markdown("---")
         st.caption(
             "Place `.txt` immigration-law documents under "
             f"`{config.resolved_data_dir}`.\n"
-            "For specific corpora, create subfolders like "
-            "`removal`, `family`, or `visas` inside that directory.\n"
-            "You can add PDF/other formats later with a custom loader."
+            "For specific corpora, subfolders hae been created:"
+            "`removal`, `family`, and `visas` (visas is the only one currently populated)"
         )
 
     st.subheader("Ask a question")
@@ -81,7 +106,7 @@ def main() -> None:
     )
 
     if st.button("Get answer") and user_question.strip():
-        with st.spinner("Thinking with RAG..."):
+        with st.spinner("Thinking..."):
             result = answer_question(user_question.strip(), corpus=selected_corpus)
 
         answer_text = result["answer"]
