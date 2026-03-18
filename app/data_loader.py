@@ -18,6 +18,7 @@ class DocumentChunk:
     text: str
     source: str
     score: float | None = None
+    distance: float | None = None
 
 
 def iter_text_files(data_dir: Path | None = None) -> Iterable[Path]:

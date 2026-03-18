@@ -41,10 +41,11 @@ def build_index(corpus: str | None = None, *, rebuild: bool = False) -> int:
 def build_context_from_chunks(chunks: List[DocumentChunk]) -> str:
     parts: List[str] = []
     for chunk in chunks:
-        score_str = f"{chunk.score:.3f}" if chunk.score is not None else "n/a"
+        relevance_str = f"{chunk.score:.3f}" if chunk.score is not None else "n/a"
+        distance_str = f"{chunk.distance:.4f}" if chunk.distance is not None else "n/a"
         parts.append(
             f"Source: {chunk.source}\n"
-            f"Relevance score: {score_str}\n"
+            f"Relevance: {relevance_str} | Distance: {distance_str}\n"
             f"Excerpt:\n{chunk.text}\n"
             "-------------------------"
         )

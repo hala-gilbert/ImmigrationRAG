@@ -38,6 +38,12 @@ TOP_K=5
 
 Run ```ollama serve``` to start up a local ollama server (make sure ollama is locally installed first)
 
+make sure llama3.1 and nomic-embed-text is downloaded. if not run:
+```bash
+ollama pull llama3.1
+ollama pull nomic-embed-text
+```
+
 Then run:
 ```bash
 streamlit run streamlit_app.py

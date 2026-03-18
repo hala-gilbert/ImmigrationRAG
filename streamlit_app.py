@@ -93,8 +93,13 @@ def main() -> None:
         with st.expander("Show retrieved context (top 3 by relevance)"):
             top_chunks = retrieved_chunks[:3]
             for idx, chunk in enumerate(top_chunks, start=1):
-                score_display = f"{chunk.score:.3f}" if getattr(chunk, "score", None) is not None else "n/a"
-                st.markdown(f"**Node {idx}**  |  **Source:** `{chunk.source}`  |  **Relevance:** {score_display}")
+                relevance_display = f"{chunk.score:.3f}" if getattr(chunk, "score", None) is not None else "n/a"
+                distance_display = f"{chunk.distance:.4f}" if getattr(chunk, "distance", None) is not None else "n/a"
+                st.markdown(
+                    f"**Chunk {idx}**  |  **Source:** `{chunk.source}`  \n"
+                    f"**Relevance:** {relevance_display}  |  **Distance:** {distance_display}"
+                    #f"**Excerpt:**\n{chunk.text}"
+                )
                 st.code(chunk.text)
                 st.markdown("---")
 

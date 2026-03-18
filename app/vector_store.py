@@ -33,11 +33,22 @@ def get_chroma_client() -> chromadb.ClientAPI:
 
 
 def get_or_create_collection(collection_name: str = "immigration_rag"):
+    """
+    Return a Chroma collection. 
+    If it exists, fetch it. 
+    If it does not exist, create it with the default L2 metric.
+    """
     client = get_chroma_client()
-    return client.get_or_create_collection(
-        name=collection_name,
-        embedding_function=OllamaEmbeddingFunction(),
-    )
+    
+    existing_collections = [c.name for c in client.list_collections()]
+    
+    if collection_name in existing_collections:
+        return client.get_collection(name=collection_name)
+    else:
+        return client.create_collection(
+            name=collection_name,
+            embedding_function=OllamaEmbeddingFunction(),
+        )
 
 def delete_collection(collection_name: str = "immigration_rag") -> None:
     """Delete a collection from the persistent Chroma DB (destructive)."""
@@ -115,7 +126,7 @@ def query_similar_chunks(
     results = collection.query(
         query_texts=[query],
         n_results=k,
-        include=["documents", "metadatas", "ids", "distances"],
+        include=["documents", "metadatas", "distances"],
     )
 
     documents = results.get("documents", [[]])[0]
@@ -125,22 +136,23 @@ def query_similar_chunks(
 
     chunks: List[DocumentChunk] = []
     for doc_id, text, meta, dist in zip(ids, documents, metadatas, distances, strict=False):
-        # Chroma returns a distance (smaller is better). Convert to a
-        # similarity-style score between 0 and 1 where possible.
-        score: float | None
         try:
-            score = max(0.0, min(1.0, 1.0 - float(dist)))
-        except Exception:  # noqa: BLE001
-            score = None
+            distance = float(dist)
+            # convert L2 distance to a 0→1 "similarity-like" relevance
+            relevance = 1 / (1 + distance)  # smaller L2 → higher relevance
+        except Exception:
+            distance = None
+            relevance = None
 
         chunks.append(
             DocumentChunk(
                 id=doc_id,
                 text=text,
                 source=meta.get("source", "unknown"),
-                score=score,
+                score=relevance,     # similarity-style (higher = better)
+                distance=distance,   # raw distance (lower = better)
             )
         )
 
-    return chunks
+    return chunks[:top_k]
 
