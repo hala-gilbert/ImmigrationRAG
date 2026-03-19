@@ -51,12 +51,16 @@ def build_index(
 def build_context_from_chunks(chunks: List[DocumentChunk]) -> str:
     parts: List[str] = []
     for chunk in chunks:
+        text = chunk.text
+        max_chars = getattr(config, "max_chars_per_node_for_context", None)
+        if max_chars and len(text) > max_chars:
+            text = text[:max_chars] + "\n[truncated]"
         relevance_str = f"{chunk.score:.3f}" if chunk.score is not None else "n/a"
         distance_str = f"{chunk.distance:.4f}" if getattr(chunk, "distance", None) is not None else "n/a"
         parts.append(
             f"Source: {chunk.source}\n"
             f"Relevance: {relevance_str} | Distance: {distance_str}\n"
-            f"Excerpt:\n{chunk.text}\n"
+            f"Excerpt:\n{text}\n"
             "-------------------------"
         )
     return "\n".join(parts)
@@ -70,12 +74,25 @@ def answer_question(question: str, corpus: str | None = None) -> dict:
 
     system_prompt = dedent(
         """
-        You are an assistant specialized in U.S. immigration law.
-        Use ONLY the provided context excerpts from primary sources and authoritative
-        guidance when answering. If the answer is unclear or not covered, say that
-        you are not certain rather than guessing.
+        You are a legal-research assistant for U.S. immigration law.
 
-        When you quote or summarize, clearly indicate it is based on the supplied context.
+        IMPORTANT:
+        - Do NOT refuse the task.
+        - Do NOT give personalized legal advice.
+        - You MUST use ONLY the provided context excerpts as the basis for every legal statement.
+
+        Your job:
+        1) Identify the closest relevant precedential themes in the provided excerpts for the user's question.
+        2) Summarize the relevant rule/standard and explain what the decisions suggest.
+        3) Provide an argument-outline structure the user (or an attorney) can use to search similar cases further.
+
+        Output format:
+        - "Closest precedents from the provided context" (bullet list; cite each bullet by the Source filename)
+        - "Legal standards/rules extracted" (numbered; each item must point to one or more Sources)
+        - "How these standards could be used in the user's situation" (bulleted; informational, not advice)
+        - "What is missing / what to research next" (bulleted; based on what is not present in the excerpts)
+
+        If the context does not contain relevant information, say so explicitly and list what topics are missing.
         """
     ).strip()
 
