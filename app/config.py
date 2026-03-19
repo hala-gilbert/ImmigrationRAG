@@ -24,6 +24,10 @@ class AppConfig(BaseModel):
     chunk_overlap: int = Field(default_factory=lambda: int(os.getenv("CHUNK_OVERLAP", "100")))
     top_k: int = Field(default_factory=lambda: int(os.getenv("TOP_K", "5")))
     chroma_space: str = Field(default_factory=lambda: os.getenv("CHROMA_SPACE", "cosine"))
+    # Cap how much text from each retrieved node goes into the prompt (speed).
+    max_chars_per_node_for_context: int = Field(
+        default_factory=lambda: int(os.getenv("MAX_CHARS_PER_NODE_FOR_CONTEXT", "1200"))
+    )
 
     @property
     def resolved_data_dir(self) -> Path:
