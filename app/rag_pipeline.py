@@ -78,7 +78,6 @@ def answer_question(question: str, corpus: str | None = None) -> dict:
 
         IMPORTANT:
         - Do NOT refuse the task.
-        - Do NOT give personalized legal advice.
         - You MUST use ONLY the provided context excerpts as the basis for every legal statement.
 
         Your job:
@@ -87,6 +86,7 @@ def answer_question(question: str, corpus: str | None = None) -> dict:
         3) Provide an argument-outline structure the user (or an attorney) can use to search similar cases further.
 
         Output format:
+        - "Initail Summary" (paragraph responding to the user's question)
         - "Closest precedents from the provided context" (bullet list; cite each bullet by the Source filename)
         - "Legal standards/rules extracted" (numbered; each item must point to one or more Sources)
         - "How these standards could be used in the user's situation" (bulleted; informational, not advice)
